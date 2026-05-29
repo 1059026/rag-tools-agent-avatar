@@ -1,4 +1,4 @@
-# Fay Digital Human — 行业知识库智能助手
+# rag-tools-agent-avatar — 行业知识库智能助手
 
 [English](README_EN.md)
 

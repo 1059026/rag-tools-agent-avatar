@@ -1,0 +1,34 @@
+# Environments
+.env
+.venv/
+venv/
+env/
+
+# Build outputs
+dist/
+target/
+*.pyc
+__pycache__/
+.pytest_cache/
+
+# Node
+node_modules/
+*.local
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code
+.claude/settings.local.json
+
+# Backups
+*.bak
+*.bak2
+
+# Planning files
+.planning/
+.vite/

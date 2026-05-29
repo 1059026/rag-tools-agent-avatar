@@ -1,0 +1,42 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: demo
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: "123456"
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.demo.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# LM Studio：OpenAI 兼容接口，base-url 需带 /v1（与 LangChain4j OpenAI 约定一致）
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: http://127.0.0.1:1234/v1
+      api-key: lm-studio
+      #model-name: liquid/lfm2-24b-a2b
+      #model-name: qwen/qwen3-30b-a3b
+      model-name: qwen2.5-coder-14b-instruct-mlx
+    # 返回 Flux<String> 时需要 streaming-chat-model（否则会报 streamingChatModel cannot be null）
+    streaming-chat-model:
+      base-url: http://127.0.0.1:1234/v1
+      api-key: lm-studio
+      #model-name: liquid/lfm2-24b-a2b
+      #model-name: qwen/qwen3-30b-a3b
+      model-name: qwen2.5-coder-14b-instruct-mlx
+
+dashscope:
+  api-key: ${DASHSCOPE_API_KEY:}
+  omni:
+    model: qwen3.5-omni-plus-realtime
+    voice: Tina
+    instructions: "你是行业知识库专业助手。用中文回答，简洁直接。重要规则：当用户消息包含「值班」「排班」「谁在值班」「值班表」等关键词时，必须先调用 showDutyList 工具再回复。当用户消息包含「事件」「警情」「险情」等关键词时，必须先调用 showEventData 工具再回复。当用户询问专业知识、规范、标准时，必须先调用 search_knowledge_base 工具再回复。工具返回的标记字符串必须原样保留在最终回复中。"

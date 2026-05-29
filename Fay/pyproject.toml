@@ -1,0 +1,18 @@
+[project]
+name = "fay-digital-human"
+version = "1.0.0"
+description = "Fay digital human backend — multimodal LLM + 3D avatar real-time conversation"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "dashscope>=1.20.0",
+    "httpx>=0.28.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+local = [
+    "edge-tts>=6.1.0",
+]

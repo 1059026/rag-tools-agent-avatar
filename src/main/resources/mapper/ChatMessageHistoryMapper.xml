@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.ChatMessageHistoryMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.demo.model.ChatMessageHistory">
+        <id column="id" property="id"/>
+        <result column="chat_id" property="chatId"/>
+        <result column="role" property="role"/>
+        <result column="content" property="content"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <select id="selectByChatId" resultMap="BaseResultMap">
+        SELECT id, chat_id, role, content, created_at
+        FROM chat_message_history
+        WHERE chat_id = #{chatId}
+        ORDER BY id ASC
+    </select>
+
+    <delete id="deleteByChatId">
+        DELETE FROM chat_message_history WHERE chat_id = #{chatId}
+    </delete>
+
+    <insert id="insertBatch">
+        INSERT INTO chat_message_history (chat_id, role, content)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.chatId}, #{item.role}, #{item.content})
+        </foreach>
+    </insert>
+
+</mapper>
+

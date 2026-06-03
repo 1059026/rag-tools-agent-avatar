@@ -1,6 +1,6 @@
 # Digital Human Agent — Java Implementation
 
-[中文](README.md)
+[中文](README.md) | [🤖 AI Skill](docs/AI-SETUP.md)
 
 A 3D digital human real-time conversation system powered by Qwen3-Omni multimodal LLM. Java Spring Boot WebFlux connects directly to DashScope WebSocket API. Vue 3 frontend with @pixiv/three-vrm renders a VRM avatar. Supports text/voice dual-mode interaction with RAG knowledge retrieval and Function Calling.
 

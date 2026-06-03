@@ -1,6 +1,6 @@
 # 数字人智能助手 — Java 实现
 
-[English](README_EN.md)
+[English](README_EN.md) | [🤖 AI Skill](docs/AI-SETUP.md)
 
 基于 Qwen3-Omni 多模态大模型的 3D 数字人实时对话系统。Java Spring Boot WebFlux 直连 DashScope WebSocket API，前端 Vue3 + @pixiv/three-vrm 渲染 VRM 数字人。支持文本/语音双模式交互，集成 RAG 知识库检索与 Function Calling 业务工具调用。
 

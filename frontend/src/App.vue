@@ -33,6 +33,8 @@ const recording = ref(false);
 const wsState = ref<WsState>("disconnected");
 const pipelineState = ref(""); // "asr" | "llm" | "tts"
 const dhJawAmplitude = ref(0);
+// avatarIndex / avatarLabels removed — VRM model doesn't need them
+
 let faySocket: FaySocket | null = null;
 const audioCapture = new AudioCapture();
 const audioPlayer = new AudioPlayer();
@@ -78,47 +80,47 @@ function onAssistantStreamChunk(
   setDisplayText: (cleaned: string) => void
 ): void {
   if (rawAccum.includes("[UI:DUTY_LIST]")) {
-    showDutyPanel.value = true;
+    showEmergencyDutyPanel.value = true;
   }
   if (rawAccum.includes("[UI:EVENT_DATA]")) {
-    showEventDataPanel.value = true;
+    showEmergencyEventDataPanel.value = true;
   }
   setDisplayText(stripUiMarkers(rawAccum));
 }
 
-// ── Business panels ─────────────────────────────────────
+// ── Emergency panels ─────────────────────────────────────
 
-const showDutyPanel = ref(false);
-const showEventDataPanel = ref(false);
+const showEmergencyDutyPanel = ref(false);
+const showEmergencyEventDataPanel = ref(false);
 
 const anyPanelOpen = computed(
-  () => showDutyPanel.value || showEventDataPanel.value
+  () => showEmergencyDutyPanel.value || showEmergencyEventDataPanel.value
 );
 
-const dutyRows = [
+const emergencyDutyRows = [
   { name: "张伟", role: "带班负责人", phone: "138****1001", shift: "5月4日 08:00–20:00" },
   { name: "李娜", role: "值班员", phone: "139****2002", shift: "5月4日 08:00–20:00" },
-  { name: "王强", role: "联络员", phone: "137****3003", shift: "5月4日 20:00–次日08:00" },
+  { name: "王强", role: "XX联络员", phone: "137****3003", shift: "5月4日 20:00–次日08:00" },
 ];
 
-const eventRows = [
+const emergencyEventRows = [
   { code: "EVT-2026-0504-01", category: "危化泄漏", level: "III 级", status: "处置中", updatedAt: "2026-05-04 09:42" },
   { code: "EVT-2026-0503-12", category: "森林火情", level: "IV 级", status: "已控制", updatedAt: "2026-05-03 18:10" },
   { code: "EVT-2026-0502-03", category: "城市内涝", level: "IV 级", status: "已结束", updatedAt: "2026-05-02 11:05" },
 ];
 
 function closeAllPanels(): void {
-  showDutyPanel.value = false;
-  showEventDataPanel.value = false;
+  showEmergencyDutyPanel.value = false;
+  showEmergencyEventDataPanel.value = false;
 }
 
 function closeTopPanelFromEsc(): void {
-  if (showEventDataPanel.value) {
-    showEventDataPanel.value = false;
+  if (showEmergencyEventDataPanel.value) {
+    showEmergencyEventDataPanel.value = false;
     return;
   }
-  if (showDutyPanel.value) {
-    showDutyPanel.value = false;
+  if (showEmergencyDutyPanel.value) {
+    showEmergencyDutyPanel.value = false;
   }
 }
 
@@ -140,6 +142,16 @@ audioPlayer.onAmplitude((amp) => {
 // ── Voice mode WebSocket setup ───────────────────────────
 
 let assistantAcc = "";
+let audioStarted = false;
+
+function flushAssistantText() {
+  const idx = messages.value.findIndex(m => m.id === currentAsstId);
+  if (idx >= 0) {
+    onAssistantStreamChunk(assistantAcc, (cleaned) => {
+      messages.value[idx]!.text = cleaned;
+    });
+  }
+}
 
 function setupSocket() {
   const sid = sessionId.value || ensureSession();
@@ -154,39 +166,52 @@ function setupSocket() {
         firstChunkReceived.value = true;
         pipelineState.value = 'llm';
         assistantAcc = "";
+        audioStarted = false;
       }
       assistantAcc += chunk;
-      const idx = messages.value.findIndex(m => m.id === currentAsstId);
-      if (idx >= 0) {
-        onAssistantStreamChunk(assistantAcc, (cleaned) => {
-          messages.value[idx]!.text = cleaned;
-        });
+      if (audioStarted) {
+        flushAssistantText();
       }
       scrollToBottom();
     },
     onTextDone: () => {
+      // 兜底：如果音频始终没来（纯文本响应），释放暂存文字
+      if (!audioStarted) {
+        audioStarted = true;
+        flushAssistantText();
+      }
       sending.value = false;
       firstChunkReceived.value = false;
       pipelineState.value = '';
       scrollToBottom();
     },
     onSpeechText: (text: string) => {
+      // Omni 返回的用户语音识别文本
       messages.value.push({ id: crypto.randomUUID(), role: "user", text });
       currentAsstId = crypto.randomUUID();
       messages.value.push({ id: currentAsstId, role: "assistant", text: "" });
       sending.value = true;
       firstChunkReceived.value = false;
       assistantAcc = "";
+      audioStarted = false;
       audioPlayer.reset();
       scrollToBottom();
     },
     onAudio: (b64: string) => {
+      if (!audioStarted) {
+        audioStarted = true;
+        flushAssistantText();
+      }
       audioPlayer.enqueue(b64);
       pipelineState.value = 'speaking';
     },
     onAudioDone: () => {
       sending.value = false;
       pipelineState.value = '';
+    },
+    onShowPanel: (panel: string) => {
+      if (panel === 'duty') showEmergencyDutyPanel.value = true;
+      else if (panel === 'event') showEmergencyEventDataPanel.value = true;
     },
     onError: (msg) => {
       error.value = msg;
@@ -339,7 +364,7 @@ function onKeydown(e: KeyboardEvent) {
             <button type="button" class="btn mode-btn" :class="{ active: voiceMode }" @click="!voiceMode && toggleVoiceMode()">语音模式</button>
             <span v-if="voiceMode" class="ws-badge" :class="wsState">WS: {{ wsState }}</span>
             <span v-if="pipelineState" class="pipeline-badge">{{ pipelineState }}</span>
-            <span class="mode-sep">|</span>
+            <span class="mode-sep">| VRM Keito</span>
           </div>
 
           <p class="hint">
@@ -406,7 +431,7 @@ function onKeydown(e: KeyboardEvent) {
         </footer>
       </div>
 
-      <!-- Business panels -->
+      <!-- Emergency panels -->
       <Teleport to="body">
         <div
           v-if="anyPanelOpen"
@@ -415,10 +440,10 @@ function onKeydown(e: KeyboardEvent) {
           @click.self="closeAllPanels"
         >
           <div class="duty-modal-stack">
-            <div v-if="showDutyPanel" class="duty-modal" role="dialog" aria-modal="true" aria-labelledby="duty-modal-title" @click.stop>
+            <div v-if="showEmergencyDutyPanel" class="duty-modal" role="dialog" aria-modal="true" aria-labelledby="duty-modal-title" @click.stop>
               <div class="duty-panel-head">
-                <h2 id="duty-modal-title" class="duty-title">值班列表</h2>
-                <button type="button" class="btn ghost duty-close" @click="showDutyPanel = false">关闭</button>
+                <h2 id="duty-modal-title" class="duty-title">XX值班表</h2>
+                <button type="button" class="btn ghost duty-close" @click="showEmergencyDutyPanel = false">关闭</button>
               </div>
               <div class="duty-table-wrap">
                 <table class="duty-table">
@@ -426,7 +451,7 @@ function onKeydown(e: KeyboardEvent) {
                     <tr><th>姓名</th><th>岗位</th><th>联系电话</th><th>班次</th></tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(row, i) in dutyRows" :key="i">
+                    <tr v-for="(row, i) in emergencyDutyRows" :key="i">
                       <td>{{ row.name }}</td><td>{{ row.role }}</td><td>{{ row.phone }}</td><td>{{ row.shift }}</td>
                     </tr>
                   </tbody>
@@ -434,10 +459,10 @@ function onKeydown(e: KeyboardEvent) {
               </div>
               <p class="duty-footnote">Esc 先关本面板；两面板同开时点遮罩全部关闭</p>
             </div>
-            <div v-if="showEventDataPanel" class="duty-modal duty-modal--events" role="dialog" aria-modal="true" aria-labelledby="event-modal-title" @click.stop>
+            <div v-if="showEmergencyEventDataPanel" class="duty-modal duty-modal--events" role="dialog" aria-modal="true" aria-labelledby="event-modal-title" @click.stop>
               <div class="duty-panel-head">
-                <h2 id="event-modal-title" class="duty-title">事件数据</h2>
-                <button type="button" class="btn ghost duty-close" @click="showEventDataPanel = false">关闭</button>
+                <h2 id="event-modal-title" class="duty-title">XX事件数据</h2>
+                <button type="button" class="btn ghost duty-close" @click="showEmergencyEventDataPanel = false">关闭</button>
               </div>
               <div class="duty-table-wrap">
                 <table class="duty-table">
@@ -445,13 +470,13 @@ function onKeydown(e: KeyboardEvent) {
                     <tr><th>事件编号</th><th>类别</th><th>等级</th><th>状态</th><th>更新时间</th></tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(row, i) in eventRows" :key="i">
+                    <tr v-for="(row, i) in emergencyEventRows" :key="i">
                       <td>{{ row.code }}</td><td>{{ row.category }}</td><td>{{ row.level }}</td><td>{{ row.status }}</td><td>{{ row.updatedAt }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <p class="duty-footnote">工具 showEventData；可与值班面板同时打开</p>
+              <p class="duty-footnote">工具 showEventData；可与值班面板同时打开以测解析干扰</p>
             </div>
           </div>
         </div>

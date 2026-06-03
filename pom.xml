@@ -44,18 +44,12 @@
             <scope>runtime</scope>
         </dependency>
 
+
         <!-- Lombok (可选) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <!-- WebSocket client for DashScope -->
-        <dependency>
-            <groupId>org.java-websocket</groupId>
-            <artifactId>Java-WebSocket</artifactId>
-            <version>1.5.7</version>
         </dependency>
 
         <!-- Spring Boot Test -->
@@ -64,6 +58,13 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- WebSocket 客户端（连接 DashScope Omni）-->
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.5.7</version>
+        </dependency>
+
         <!-- LangChain4J 起步依赖-->
         <dependency>
             <groupId>dev.langchain4j</groupId>

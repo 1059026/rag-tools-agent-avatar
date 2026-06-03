@@ -44,7 +44,12 @@ public class AiMemoryConfig {
     // 构建向量数据库操作对象
     public EmbeddingStore<TextSegment> embeddingStore(EmbeddingModel embeddingModel) {
         //1.加载文档进内存
-        List<Document> documents = FileSystemDocumentLoader.loadDocuments("/Users/rodman/workspace/行业知识库文档");
+        // 使用项目相对路径加载知识库文档（若目录为空则跳过）
+        String kbPath = "knowledge-base";
+        java.io.File kbDir = new java.io.File(kbPath);
+        List<Document> documents = kbDir.exists() && kbDir.isDirectory()
+                ? FileSystemDocumentLoader.loadDocuments(kbPath)
+                : List.of();
         //2.构建向量数据库操作对象
         InMemoryEmbeddingStore store = new InMemoryEmbeddingStore();
         //3.构建一个EmbeddingStoreIngestor对象，完成文本数据切割以及向量化存储

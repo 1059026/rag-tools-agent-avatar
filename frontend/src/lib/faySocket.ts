@@ -27,6 +27,7 @@ export type WsCallbacks = {
   onState?: (state: string) => void;
   onError?: (msg: string) => void;
   onStateChange?: (state: WsState) => void;
+  onShowPanel?: (panel: string) => void;
 };
 
 export class FaySocket {
@@ -90,6 +91,9 @@ export class FaySocket {
               break;
             case 'error':
               this.callbacks.onError?.(msg.data || '');
+              break;
+            case 'show_panel':
+              this.callbacks.onShowPanel?.(msg.data || '');
               break;
             case 'pong':
               break;

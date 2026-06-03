@@ -42,19 +42,19 @@ public class OmniWebSocketHandler implements WebSocketHandler {
             Map.of(
                     "type", "function",
                     "name", "showDutyList",
-                    "description", "显示当前值班表。当用户询问谁在值班、值班表、排班时调用。",
+                    "description", "显示当前XX值班表，包含值班人员姓名、岗位、联系电话、班次信息。当用户询问谁在值班、值班表、排班时调用。",
                     "parameters", Map.of("type", "object", "properties", Map.of(), "required", List.of())
             ),
             Map.of(
                     "type", "function",
                     "name", "showEventData",
-                    "description", "显示事件数据面板。当用户询问事件列表、警情、险情时调用。",
+                    "description", "显示XX事件数据面板，包含事件编号、类别、等级、状态、更新时间。当用户询问事件列表、警情、险情时调用。",
                     "parameters", Map.of("type", "object", "properties", Map.of(), "required", List.of())
             ),
             Map.of(
                     "type", "function",
                     "name", "search_knowledge_base",
-                    "description", "搜索行业知识库获取专业知识。当用户询问行业管理、安全生产、防灾减灾、救援处置等专业知识时调用。",
+                    "description", "搜索XX行业知识库获取专业知识。当用户询问行业管理、安全生产、防灾减灾、救援处置等专业知识时调用。",
                     "parameters", Map.of(
                             "type", "object",
                             "properties", Map.of("query", Map.of(
@@ -121,7 +121,7 @@ public class OmniWebSocketHandler implements WebSocketHandler {
                 json(Map.of("type", "audio_done"))));
         client.onError(msg -> outbox.tryEmitNext(
                 json(Map.of("type", "error", "data", msg))));
-        client.onFunctionCall((name, payload) -> handleFunctionCall(clientHolder[0], name, payload));
+        client.onFunctionCall((name, payload) -> handleFunctionCall(clientHolder[0], name, payload, outbox));
 
         // subscribe outbox → browser WS
         outbox.asFlux()
@@ -156,7 +156,7 @@ public class OmniWebSocketHandler implements WebSocketHandler {
                     json(Map.of("type", "audio_done"))));
             newClient.onError(msg -> outbox.tryEmitNext(
                     json(Map.of("type", "error", "data", msg))));
-            newClient.onFunctionCall((name, payload) -> handleFunctionCall(newClient, name, payload));
+            newClient.onFunctionCall((name, payload) -> handleFunctionCall(newClient, name, payload, outbox));
 
             newClient.connect().thenAccept(v -> {
                 newClient.initializeSession();
@@ -223,6 +223,18 @@ public class OmniWebSocketHandler implements WebSocketHandler {
 
     // --- Message dispatch from browser ---
 
+    // 关键词 → 强制工具调用映射
+    private static final String[][] FORCE_TOOL_PATTERNS = {
+        {"值班", "排班", "谁在岗", "谁在上班", "今天谁", "明天谁", "这周谁", "值班表"},
+        {"事件", "警情", "险情", "灾情", "事故", "突发"},
+        {"知识", "规范", "预案", "标准", "怎么处置", "如何应对", "怎么办", "安全"}
+    };
+    private static final String[] FORCE_TOOL_NAMES = {
+        "showDutyList",
+        "showEventData",
+        "search_knowledge_base"
+    };
+
     @SuppressWarnings("unchecked")
     private void dispatch(DashScopeRealtimeClient client, String raw, String sessionId) {
         Map<String, Object> msg;
@@ -239,9 +251,21 @@ public class OmniWebSocketHandler implements WebSocketHandler {
             case "audio":
                 client.sendAudio(data);
                 break;
-            case "text":
-                client.sendText(data, null);
+            case "text": {
+                // 关键词检测：匹配到则强制告诉模型必须先调工具
+                String prefix = "";
+                for (int i = 0; i < FORCE_TOOL_PATTERNS.length; i++) {
+                    for (String kw : FORCE_TOOL_PATTERNS[i]) {
+                        if (data.contains(kw)) {
+                            prefix = "【系统指令：你必须先调用" + FORCE_TOOL_NAMES[i] + "工具，再把结果告诉用户。不要自己编造信息。】";
+                            break;
+                        }
+                    }
+                    if (!prefix.isEmpty()) break;
+                }
+                client.sendText(prefix + data, null);
                 break;
+            }
             case "audio_done":
                 client.commitAudio();
                 break;
@@ -249,7 +273,6 @@ public class OmniWebSocketHandler implements WebSocketHandler {
                 client.cancelResponse();
                 break;
             case "ping":
-                // handled via outbox; we'd need a reference here, but ping is optional
                 break;
         }
     }
@@ -274,7 +297,8 @@ public class OmniWebSocketHandler implements WebSocketHandler {
     // --- Function call execution ---
 
     @SuppressWarnings("unchecked")
-    private void handleFunctionCall(DashScopeRealtimeClient client, String name, Map<String, Object> payload) {
+    private void handleFunctionCall(DashScopeRealtimeClient client, String name, Map<String, Object> payload,
+                                     Sinks.Many<String> outbox) {
         String callId = (String) payload.get("call_id");
         Map<String, Object> args = (Map<String, Object>) payload.get("arguments");
         String output;
@@ -282,9 +306,11 @@ public class OmniWebSocketHandler implements WebSocketHandler {
         switch (name) {
             case "showDutyList":
                 output = dutyTools.showDutyList();
+                outbox.tryEmitNext(json(Map.of("type", "show_panel", "data", "duty")));
                 break;
             case "showEventData":
                 output = eventTools.showEventData();
+                outbox.tryEmitNext(json(Map.of("type", "show_panel", "data", "event")));
                 break;
             case "search_knowledge_base": {
                 String query = args != null ? (String) args.getOrDefault("query", "") : "";

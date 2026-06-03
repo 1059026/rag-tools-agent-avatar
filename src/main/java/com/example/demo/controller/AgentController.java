@@ -26,7 +26,6 @@ public class AgentController {
         return agentService.ping(sessionId, message);
     }
 
-    /** 清理当前 sessionId 对应的服务端对话记忆，不结束会话；前端可随后轮换 sessionId 并清空本地消息列表 */
     @PostMapping("/new")
     public Mono<ResponseEntity<Void>> clearContext(@RequestParam String sessionId) {
         agentService.clearChatMemory(sessionId);

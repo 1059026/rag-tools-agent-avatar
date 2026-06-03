@@ -1,8 +1,8 @@
-# RAG-Tools-Agent-Avatar — Multimodal Digital Human Agent
+# Digital Human Agent — Java Implementation
 
 [中文](README.md)
 
-A 3D digital human real-time conversation system powered by multimodal LLMs. Supports text/voice dual-mode interaction with RAG knowledge retrieval and business tool calling.
+A 3D digital human real-time conversation system powered by Qwen3-Omni multimodal LLM. Java Spring Boot WebFlux connects directly to DashScope WebSocket API. Vue 3 frontend with @pixiv/three-vrm renders a VRM avatar. Supports text/voice dual-mode interaction with RAG knowledge retrieval and Function Calling.
 
 > **Note**: All demo data (duty rosters, event lists, RAG knowledge base documents) are fictional examples.
 
@@ -12,25 +12,35 @@ A 3D digital human real-time conversation system powered by multimodal LLMs. Sup
 
 ## Features
 
-- **Real-time Voice Conversation** — Multimodal Qwen3-Omni handles audio input/output end-to-end, no separate ASR/TTS pipeline needed
-- **3D Digital Human** — VRM model rendered in real-time, audio-driven lip sync, state-machine-controlled expressions and gestures
-- **RAG Knowledge Retrieval** — Vector search over domain knowledge base with conversation history for context-aware answers
-- **Business Tool Calling** — LLM function calling for duty roster lookup, event data panels, and more
-- **Dual Mode** — WebSocket real-time voice (recommended) / SSE text streaming, one-click toggle
-- **Multi LLM Backend** — DashScope (recommended), LM Studio local deployment, OpenAI-compatible API
+- **Real-time Voice Conversation** — Qwen3-Omni handles audio end-to-end. Java acts as a WebSocket relay. No separate ASR/TTS pipeline needed.
+- **3D Digital Human** — Keito VRM model (@pixiv/three-vrm) with audio-driven lip sync and gesture state machine
+- **RAG Knowledge Retrieval** — LangChain4j + ONNX embedding model, vector search embedded in conversation flow
+- **Business Tool Calling** — Omni Function Calling for duty roster, event panels, and knowledge base search
+- **Dual Mode** — WebSocket real-time voice / SSE text streaming, one-click toggle
+- **Keyword-enforced Tooling** — Java-side intent detection injects tool-calling instructions to prevent model hallucination
 
 ## Architecture
 
 ```
-frontend (Vue 3 + Three.js/VRM + Vite :5173)
-    │
-    ├── SSE text ──────────────────> Python/Java backend :8081
-    └── WebSocket audio/text ──────> Python/Java backend :8081
-                                       │
-                                       ├── Qwen3-Omni (end-to-end audio understanding + generation)
-                                       ├── RAG (LangChain4j + VectorStore + Local Docs)
-                                       └── Tools (Duty Roster / Event Data)
+Browser ─WS─→ Java (OmniWebSocketHandler) ─WS─→ DashScope Qwen3-Omni
+              │                                  │
+              ├─ ContentRetriever (RAG)          ├─ ASR (built-in)
+              ├─ EmergencyDutyUiTools            ├─ LLM (built-in)
+              ├─ EmergencyEventUiTools           └─ TTS (built-in)
+              ├─ Keyword detection
+              └─ PersistentChatMemoryStore (MySQL)
 ```
+
+## Tech Stack
+
+| Layer | Technology | Port |
+|-------|-----------|------|
+| Frontend | Vue 3 + Vite 6 + @pixiv/three-vrm v3 + Three.js 0.184 | 5173 |
+| Backend | Spring Boot 3.2.5 (WebFlux) + MyBatis + LangChain4j | 8081 |
+| Model | DashScope qwen3.5-omni-plus-realtime (WebSocket) | Cloud |
+| Database | MySQL 8.0 (Docker/OrbStack) | 3306 |
+| Embedding | BgeSmallEnV15QuantizedEmbeddingModel (ONNX, local) | In-process |
+| Knowledge Base | knowledge-base (20 Markdown files) | Local |
 
 ## Prerequisites
 
@@ -38,142 +48,97 @@ frontend (Vue 3 + Three.js/VRM + Vite :5173)
 
 | Dependency | Notes |
 |------------|-------|
-| **DashScope API Key** | Get one from [Alibaba Cloud DashScope Console](https://dashscope.console.aliyun.com/), pay-as-you-go |
-| **Multimodal Model** | Voice mode requires a multimodal model. Recommended: `qwen3-omni-flash-realtime` or `qwen3.5-omni-plus-realtime` |
-| Node.js 18+ | Frontend build and dev server |
+| **DashScope API Key** | Get from [Alibaba Cloud DashScope Console](https://dashscope.console.aliyun.com/), pay-as-you-go |
+| JDK 17+ | Compile and run |
+| Node.js 18+ | Frontend dev server |
 
 ### Optional
 
 | Dependency | Notes |
 |------------|-------|
-| Python 3.12+ | Python backend (recommended, no database required) |
-| JDK 17+ + MySQL | Java backend (includes RAG + chat persistence) |
-| LM Studio | Local LLM inference (text mode only; voice mode still needs DashScope Omni) |
-| RAG Knowledge Base | Required for Java backend, see configuration below |
-
-### About Omni Multimodal Models
-
-Real-time voice conversation uses multimodal models (Qwen3-Omni series) that have built-in audio understanding and synthesis — a single call handles audio → comprehension → audio end-to-end. **No separate ASR or TTS deployment required.**
-
-Text-only mode works with standard LLMs (including LM Studio local models).
-
-| Model | Use Case | Latency |
-|-------|----------|---------|
-| `qwen3-omni-flash-realtime` | Real-time voice (recommended) | Low |
-| `qwen3.5-omni-plus-realtime` | Real-time voice (stronger reasoning) | Medium |
-| `qwen-plus` / LM Studio local models | Text chat only | — |
+| MySQL 8.0 | Chat memory persistence (core features work without it) |
+| LM Studio | Local LLM inference (SSE text fallback only) |
 
 ## Quick Start
 
-### Python Backend (Recommended)
-
 ```bash
-# 1. Clone the repo
+# 1. Clone
 git clone <repo-url> && cd rag-tools-agent-avatar
 
-# 2. Configure API Key
-#    Copy the environment template, then replace DASHSCOPE_API_KEY with your own key
-#    Get your key from https://dashscope.console.aliyun.com/
-cp Fay/.env.example Fay/.env
-# Edit Fay/.env and find this line:
-#   DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxx
-# Replace sk-xxxxxxxxxxxxxxxx with your actual DashScope API key (keep the sk- prefix)
+# 2. Set API Key
+#    Edit src/main/resources/application.yml
+#    Set dashscope.api-key to your DashScope API key
 
-# 3. Start the backend
-cd Fay
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-SERVER_PORT=8081 python3 -m uvicorn main:app --host 0.0.0.0 --port 8081 --reload
-# Note: SERVER_PORT must be 8081 to match the Vite proxy configuration
+# 3. Start backend
+mvn spring-boot:run
 
-# 4. In another terminal, start the frontend
+# 4. In another terminal, start frontend
 cd frontend
 npm install
 npm run dev
 
-# 5. Open in browser
+# 5. Open browser
 open http://localhost:5173
 ```
 
-### Java Backend (with RAG)
+> For chat persistence, start MySQL, create `demo` database, and run `src/main/resources/schema.sql`.
 
-```bash
-# Requires JDK 17+ and MySQL
-# Initialize the database
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS demo"
-mysql -u root -p demo < src/main/resources/schema.sql
+## RAG Setup
 
-# Configure RAG knowledge base path
-# Edit src/main/java/com/example/demo/config/AiMemoryConfig.java
-# Update FileSystemDocumentLoader.loadDocuments to point to your documents directory
+Knowledge base documents live in the `knowledge-base/` directory. The path is configured in `application.yml`:
 
-# Set DashScope API Key
-export DASHSCOPE_API_KEY=sk-your-key-here
-
-# Start
-mvn spring-boot:run
+```yaml
+knowledge:
+  base:
+    path: knowledge-base
 ```
 
-## RAG Knowledge Base Setup
-
-Documents are loaded via `FileSystemDocumentLoader` in `AiMemoryConfig.java`. Create a `knowledge-base/` directory in the project root, place your documents there, and update the config:
-
-```java
-List<Document> documents = FileSystemDocumentLoader.loadDocuments(
-    "knowledge-base/"  // Path to your document directory
-);
-```
-
-Supported formats: `.txt`, `.md`, `.pdf`, `.docx`. Documents are indexed automatically on startup.
+Documents are loaded and vectorized on startup by `AiMemoryConfig.java`. Supported formats: `.txt`, `.md`, `.pdf`, `.docx`. The embedding model runs locally via ONNX — no external API needed.
 
 ## Project Structure
 
 ```
-rag-tools-agent-avatar/
-├── Fay/                          # Python backend (FastAPI)
-│   ├── main.py                   # Entry point: SSE + WebSocket routes
-│   ├── omni_pipeline.py          # Qwen3-Omni real-time voice WebSocket proxy
-│   ├── pipeline.py               # Text pipeline (SSE fallback)
-│   ├── llm_client.py             # LLM client (DashScope / LM Studio)
-│   ├── tts_client.py             # TTS client (SSE text mode speech output)
-│   ├── tool_system.py            # Business tools (duty roster / event data)
-│   ├── session_manager.py        # In-memory session management
-│   ├── models.py                 # Data models
-│   ├── config.py                 # Configuration loader
-│   └── .env.example              # Environment variable template
-├── src/                          # Java backend (Spring Boot WebFlux)
-│   └── main/java/com/example/demo/
-│       ├── omni/                 # Qwen-Omni real-time pipeline (Java impl)
-│       ├── config/AiMemoryConfig.java  # RAG vector retrieval config
-│       ├── controller/           # API controllers
-│       └── service/              # Business services + LangChain4j AiService
-├── frontend/                     # Vue 3 frontend
-│   ├── src/
-│   │   ├── App.vue               # Main chat UI + business panels
-│   │   ├── components/
-│   │   │   └── DigitalHuman.vue  # Three.js VRM 3D avatar rendering
-│   │   └── lib/
-│   │       ├── faySocket.ts      # WebSocket communication
-│   │       ├── audioCapture.ts   # PCM 16kHz audio capture
-│   │       ├── audioPlayer.ts    # PCM 24kHz streaming playback
-│   │       └── sseStream.ts      # SSE stream parser
-│   └── public/
-│       └── keito.vrm             # 3D avatar model (by keito, free)
-├── knowledge-base/               # RAG knowledge base (create your own)
-├── docs/screenshots/             # UI screenshots
-└── LICENSE                       # MIT License
+├── pom.xml                                          # Maven dependencies
+├── knowledge-base/                                   # Domain knowledge base
+├── src/main/resources/
+│   ├── application.yml                              # All configuration
+│   ├── schema.sql                                   # DB init scripts
+│   └── mapper/                                       # MyBatis XML
+├── src/main/java/com/example/demo/
+│   ├── omni/
+│   │   ├── DashScopeRealtimeClient.java             # DashScope WS client ★★★
+│   │   └── OmniWebSocketHandler.java                # Browser↔Omni relay ★★★
+│   ├── config/
+│   │   ├── AiMemoryConfig.java                      # RAG embedding + retrieval
+│   │   └── WebSocketConfig.java                     # WS route registration
+│   ├── service/
+│   │   ├── EmergencyDutyUiTools.java                # Duty roster tool ★
+│   │   ├── EmergencyEventUiTools.java               # Event data tool ★
+│   │   └── PersistentChatMemoryStore.java           # Chat memory persistence
+│   └── controller/
+│       └── AgentController.java                     # SSE text fallback
+├── frontend/
+│   ├── public/keito.vrm                              # VRM model (20MB)
+│   └── src/
+│       ├── App.vue                                   # Main UI + panels
+│       ├── components/DigitalHuman.vue               # 3D avatar ★
+│       └── lib/
+│           ├── faySocket.ts                          # WebSocket client
+│           ├── audioCapture.ts                       # Mic capture
+│           └── audioPlayer.ts                        # Audio playback
+└── docs/screenshots/
 ```
 
 ## FAQ
 
-**Q: Why does voice mode require DashScope? Can I use a local model?**
-Qwen3-Omni is a multimodal model (handles audio input and output simultaneously). There is currently no open-source equivalent that runs on consumer hardware. Text-only mode can use LM Studio local models.
+**Q: Why does voice mode need DashScope? Can I use a local model?**
+Qwen3-Omni is a multimodal model that processes audio input and generates audio output in a single pass. There is currently no open-source equivalent that runs on consumer hardware.
 
-**Q: How do I switch between Java and Python backends?**
-Both share the same API. The Vite proxy defaults to `127.0.0.1:8081` — just make sure the running backend is on that port. The Python backend is simpler (no MySQL required); the Java backend offers RAG and chat persistence.
+**Q: The model sometimes hallucinates instead of calling tools. What to do?**
+Java-side keyword detection (`FORCE_TOOL_PATTERNS`) injects system instructions to force tool calls when user intent matches. Additionally, `show_panel` WebSocket messages are pushed directly to the frontend when a tool executes, bypassing the model's text output entirely.
 
 **Q: How do I replace the demo data?**
-Duty roster data lives in three places: `tool_system.py` (Python), `EmergencyDutyUiTools.java` (Java), and `App.vue` (frontend). Update them as needed.
+Duty roster and event data are in `EmergencyDutyUiTools.java` (return values) and `App.vue` (panel rendering). Knowledge base documents are in `knowledge-base/`.
 
 ## License
 

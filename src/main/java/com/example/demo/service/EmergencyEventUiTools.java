@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmergencyEventUiTools {
 
-    public static final String EVENT_DATA_MARKER = "[[UI:EVENT_DATA]]";
+    public static final String EVENT_DATA_MARKER = "[UI:EVENT_DATA]";
 
     @Tool("当用户想查看、打开事件数据、事件列表、突发事件统计、警情/火情/险情数据等与事件案例、事件指标数据浏览相关的内容时调用。"
             + "不要用于排班、值班表场景；与 showDutyList 区分，仅在与事件数据相关时调用本工具。")

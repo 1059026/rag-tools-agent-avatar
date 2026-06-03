@@ -40,7 +40,7 @@ Browser ─WS─→ Java (OmniWebSocketHandler) ─WS─→ DashScope Qwen3-Omni
 | Model | DashScope qwen3.5-omni-plus-realtime (WebSocket) | Cloud |
 | Database | MySQL 8.0 (Docker/OrbStack) | 3306 |
 | Embedding | BgeSmallEnV15QuantizedEmbeddingModel (ONNX, local) | In-process |
-| Knowledge Base | knowledge-base (20 Markdown files) | Local |
+| Knowledge Base | knowledge-base (user-provided documents) | Local |
 
 ## Prerequisites
 
@@ -57,7 +57,7 @@ Browser ─WS─→ Java (OmniWebSocketHandler) ─WS─→ DashScope Qwen3-Omni
 | Dependency | Notes |
 |------------|-------|
 | MySQL 8.0 | Chat memory persistence (core features work without it) |
-| LM Studio | Local LLM inference (SSE text fallback only) |
+| Local Multimodal Model | Set up your own Omni-compatible model service for offline deployment |
 
 ## Quick Start
 
@@ -85,7 +85,7 @@ open http://localhost:5173
 
 ## RAG Setup
 
-Knowledge base documents live in the `knowledge-base/` directory. The path is configured in `application.yml`:
+Place your own documents in the `knowledge-base/` directory. The path is configured in `application.yml`:
 
 ```yaml
 knowledge:
@@ -99,7 +99,7 @@ Documents are loaded and vectorized on startup by `AiMemoryConfig.java`. Support
 
 ```
 ├── pom.xml                                          # Maven dependencies
-├── knowledge-base/                                   # Domain knowledge base
+├── knowledge-base/                                   # User-provided documents
 ├── src/main/resources/
 │   ├── application.yml                              # All configuration
 │   ├── schema.sql                                   # DB init scripts
@@ -134,8 +134,8 @@ Documents are loaded and vectorized on startup by `AiMemoryConfig.java`. Support
 **Q: Why does voice mode need DashScope? Can I use a local model?**
 Qwen3-Omni is a multimodal model that processes audio input and generates audio output in a single pass. There is currently no open-source equivalent that runs on consumer hardware.
 
-**Q: The model sometimes hallucinates instead of calling tools. What to do?**
-Java-side keyword detection (`FORCE_TOOL_PATTERNS`) injects system instructions to force tool calls when user intent matches. Additionally, `show_panel` WebSocket messages are pushed directly to the frontend when a tool executes, bypassing the model's text output entirely.
+**Q: Can this run fully offline?**
+Qwen3-Omni is currently only available via the DashScope API. For offline deployment, you'll need to set up your own multimodal model service compatible with the Omni WebSocket protocol. Note that text-only LLM tools like LM Studio cannot handle voice multimodality and are not a drop-in replacement.
 
 **Q: How do I replace the demo data?**
 Duty roster and event data are in `EmergencyDutyUiTools.java` (return values) and `App.vue` (panel rendering). Knowledge base documents are in `knowledge-base/`.

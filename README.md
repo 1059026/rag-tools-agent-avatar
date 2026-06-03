@@ -42,7 +42,7 @@ Qwen3-Omni 是端到端多模态模型，内部已包含 ASR + LLM + TTS。服�
 | 模型 | DashScope qwen3.5-omni-plus-realtime (WebSocket 实时 API) | 云服务 |
 | 数据库 | MySQL 8.0 (Docker/OrbStack) | 3306 |
 | 嵌入模型 | BgeSmallEnV15QuantizedEmbeddingModel (本地 ONNX) | 进程内 |
-| 知识库 | knowledge-base (20 份 Markdown，随项目分发) | 本地文件 |
+| 知识库 | knowledge-base (用户自行上传文档) | 本地文件 |
 
 ## 前置条件
 
@@ -59,7 +59,7 @@ Qwen3-Omni 是端到端多模态模型，内部已包含 ASR + LLM + TTS。服�
 | 依赖 | 说明 |
 |------|------|
 | MySQL 8.0 | 会话记忆持久化（可不启用，不影响核心功能） |
-| LM Studio | 本地 LLM 推理（仅 SSE 文本后备路径使用） |
+| 本地多模态模型 | 如需离线部署，需自行启动兼容 Omni 协议的本地模型服务 |
 
 ## 快速开始
 
@@ -87,7 +87,7 @@ open http://localhost:5173
 
 ## RAG 知识库配置
 
-知识库文档在项目 `knowledge-base/` 目录下（20 篇 .md），通过 `application.yml` 中的 `knowledge.base.path` 配置。启动时 `AiMemoryConfig.java` 自动加载并向量化：
+知识库文档需用户自行放入 `knowledge-base/` 目录，通过 `application.yml` 中的 `knowledge.base.path` 配置。启动时 `AiMemoryConfig.java` 自动加载并向量化：
 
 ```yaml
 knowledge:
@@ -101,7 +101,7 @@ knowledge:
 
 ```
 ├── pom.xml                                          # Maven 依赖
-├── knowledge-base/                                   # XX行业知识库 (20 .md)
+├── knowledge-base/                                   # 知识库文档目录（用户自行上传）
 ├── src/main/resources/
 │   ├── application.yml                              # 全部配置
 │   ├── schema.sql                                   # 数据库初始化
@@ -146,8 +146,8 @@ knowledge:
 **Q: 语音模式为什么需要 DashScope，不能用本地模型？**
 Qwen3-Omni 是端到端多模态模型（音频输入→理解→生成→音频输出），目前无开源等价物能在消费级硬件上运行。
 
-**Q: 模型不调工具，自己编造回答怎么办？**
-Java 侧已内置关键词前置检测（`FORCE_TOOL_PATTERNS`）：匹配到值班/事件/知识库相关关键词时，在用户消息前注入系统指令强制模型调用对应工具。同时，工具执行时直接推送 `show_panel` WebSocket 消息给前端打开面板，不依赖模型文本输出。
+**Q: 可以离线部署吗？**
+Qwen3-Omni 目前仅通过 DashScope API 提供服务。如需离线部署，需自行搭建兼容 Omni WebSocket 协议的本地多模态模型服务。注意：LM Studio 等纯文本 LLM 推理工具不支持语音多模态，不能直接替代。
 
 **Q: 演示数据怎么替换？**
 值班表和事件数据硬编码在 `EmergencyDutyUiTools.java`（返回值）和 `App.vue`（面板渲染）。知识库文档在 `knowledge-base/` 目录。根据业务场景替换即可。
